@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Arapça Hafıza Oyunu</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+        html { font-size: clamp(12px, 1.2vw, 16px); }
+
+        :root {
+            --bg-start: #f7f9fc; --bg-end: #e8eef5; --primary-color: #5E81AC; --accent-color: #f7b733; --surface-color: #FFFFFF; --text-color: #2e3440; --text-light-color: #FFFFFF; --player1-color: #64a7fa; --player2-color: #f77d7d; --correct-color: #2ddc73; --incorrect-color: #f24c4c; --shadow-light: rgba(46, 52, 64, 0.07); --shadow-medium: rgba(46, 52, 64, 0.12); --border-radius-sm: 8px; --border-radius-md: 12px; --border-radius-lg: 16px;
+            --button-bg: var(--surface-color); --button-shadow: 0 3px #d8dee9; --button-hover-bg: #eceff4; --button-selected-bg: var(--primary-color); --button-selected-color: var(--text-light-color); --button-selected-shadow: 0 0 0 3px var(--accent-color);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: 'Noto Naskh Arabic', serif; background-color: var(--bg-start); background-image: linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%); color: var(--text-color); }
+
+        #game-wrapper { width: 100%; height: 100%; position: relative; margin: auto; overflow: hidden; }
+
+        .screen { display: none; width: 100%; height: 100%; flex-direction: column; justify-content: center; align-items: center; position: absolute; top: 0; left: 0; padding: 20px; }
+        .screen.active { display: flex; }
+        
+        #game-screen { flex-direction: row; justify-content: space-between; padding: 15px; align-items: stretch; gap: 15px; }
+        
+        .score-display { flex: 0 0 clamp(100px, 15%, 150px); max-width: 150px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: bold; border-radius: var(--border-radius-lg); color: var(--text-light-color); }
+        #player1-display { background: linear-gradient(180deg, var(--player1-color), #4e8dff); }
+        #player2-display { background: linear-gradient(180deg, var(--player2-color), #f55a5a); }
+        .score-display svg { width: clamp(40px, 10vw, 80px); height: clamp(40px, 10vw, 80px); fill: rgba(255,255,255,0.9); }
+
+        #game-board { flex-grow: 1; display: grid; gap: clamp(6px, 1vw, 12px); perspective: 1200px; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(4, 1fr); }
+
+        .card { background-color: transparent; cursor: pointer; container-type: inline-size; }
+        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; will-change: transform; }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+        
+        /* HAREKELER İÇİN GENEL BOYUT (ARTIRILDI) */
+        .card-face { 
+            position: absolute; 
+width: 100%; 
+height: 100%; -webkit-backface-visibility: 
+hidden; backface-visibility: 
+hidden; border-radius: var(--border-radius-md); 
+display: flex; 
+justify-content: center; 
+align-items: center; 
+text-align: center; 
+line-height: 1;
+font-size: clamp(1.2rem, 25cqw, 3.5rem); /* Harekeleri çok büyük yapar */
+        }
+        
+        .card-front { background-color: var(--surface-color); box-shadow: 0 2px 8px var(--shadow-light); }
+        .card-back { transform: rotateY(180deg); background-color: var(--surface-color); color: var(--text-color); }
+
+        /* EMOJİLER İÇİN ÖZEL DEV BOYUT */
+        .emoji-content {
+            font-size: clamp(5rem, 35cqw, 8rem) !important;
+            display: block;
+            line-height: 1;
+        }
+
+        .game-over-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface-color); padding: 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 1000; }
+        .hidden { display: none !important; }
+        .icon-btn { background: none; border: none; cursor: pointer; }
+        .icon-btn svg { width: 60px; height: 60px; fill: var(--primary-color); }
+
+        @media (max-width: 800px) {
+            #game-screen { flex-direction: column; }
+            #game-board { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(5, 1fr); }
+            .score-display { flex-direction: row; width: 100%; height: 60px; font-size: 2rem; }
+        }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+    <div class="screen active" id="game-screen"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const gameData = [
+        { id: 1, text1: 'شَدَّة', text2: 'ــّـ' }, // Tatwil (çizgi) eklenerek büyütüldü
+        { id: 2, text1: 'سُكون', text2: 'ــْـ' },
+        { id: 3, text1: 'تَنْوين', text2: 'ـــًـــٌـــٍـ' },
+        { id: 4, text1: 'السَّلام عَلَيْكُم', text2: '👋' },
+        { id: 5, text1: 'صَباح الخَيْر', text2: '☀️' },
+        { id: 6, text1: 'مَساء الخَيْر', text2: '🌙' },
+        { id: 7, text1: 'اِسْتَمِعْ', text2: '👂' },
+        { id: 8, text1: 'اِقْرَئي', text2: '📖' },
+        { id: 9, text1: 'أَعِدْ', text2: '🔁' },
+        { id: 10, text1: 'اُكْتُبي', text2: '✍️' }
+    ];
+
+    const Utils = { shuffleArray: (arr) => [...arr].sort(() => 0.5 - Math.random()) };
+
+    const App = {
+        state: { isAudioInitialized: false, audioCtx: null },
+       state: {
+    isAudioInitialized: false,
+    audioCtx: null,
+},
+        init() {
+            MemoryGame.start(gameData);
+            const initAudio = () => { 
+                if (!this.state.isAudioInitialized) {
+                    this.state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.state.isAudioInitialized = true;
+                }
+            };
+            document.addEventListener('click', initAudio, { once: true });
+        },
+        playSound(type) { /* Ses fonksiyonu basitleştirildi */ }
+    };
+
+
+    const MemoryGame = {
+        dom: {},
+        state: {},
+        start(words) {
+            this.state = { f: [], p: 0, l: false, s1: 0, s2: 0, w: words.slice(0, 10) };
+            const gameScreen = document.getElementById('game-screen');
+            gameScreen.innerHTML = `
+                <div class="score-display" id="player1-display"><svg viewBox="0 0 24 24"><path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"></path></svg><span id="score1">0</span></div>
+                <div id="game-board"></div>
+                <div class="score-display" id="player2-display" style="display:none"><span>0</span></div>
+                <div class="game-over-overlay hidden" id="memory-game-over"><button class="icon-btn" onclick="location.reload()"><svg viewBox="0 0 24 24"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"></path></svg></button></div>`;
+            
+            this.dom.board = document.getElementById('game-board');
+            this.dom.score1 = document.getElementById('score1');
+            
+            const pairs = this.state.w.flatMap(w => [
+                { content: w.text1, id: w.id },
+                { content: w.text2, id: w.id }
+            ]);
+            this.populateBoard(Utils.shuffleArray(pairs));
+        },
+
+        populateBoard(cards) {
+            this.dom.board.innerHTML = '';
+            cards.forEach(cardData => {
+                const cardEl = document.createElement('div');
+                cardEl.className = 'card';
+                cardEl.dataset.id = cardData.id;
+
+                // EMOJİ KONTROLÜ
+                const isEmoji = /\p{Emoji}/u.test(cardData.content) && !/[a-zA-Z0-9\u0600-\u06FF]/.test(cardData.content);
+                const displayContent = isEmoji ? `<span class="emoji-content">${cardData.content}</span>` : cardData.content;
+                const direction = isEmoji ? 'ltr' : 'rtl';
+
+                cardEl.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-front"></div>
+                        <div class="card-face card-back" dir="${direction}">
+                            ${displayContent}
+                        </div>
+                    </div>`;
+                cardEl.onclick = () => this.flipCard(cardEl);
+                this.dom.board.appendChild(cardEl);
+            });
+        },
+
+        flipCard(card) {
+            if (this.state.l || card.classList.contains('flipped')) return;
+            card.classList.add('flipped');
+            this.state.f.push(card);
+
+            if (this.state.f.length === 2) {
+                this.state.l = true;
+                const [c1, c2] = this.state.f;
+                if (c1.dataset.id === c2.dataset.id) {
+                    this.state.s1++;
+                    this.dom.score1.textContent = this.state.s1;
+                    this.state.f = [];
+                    this.state.l = false;
+                    this.state.p++;
+                    if (this.state.p === 10) document.getElementById('memory-game-over').classList.remove('hidden');
+                } else {
+                    setTimeout(() => {
+                        c1.classList.remove('flipped');
+                        c2.classList.remove('flipped');
+                        this.state.f = [];
+                        this.state.l = false;
+                    }, 1000);
+                }
+            }
+        }
+    };
+
+    App.init();
+});
+</script>
+</body>
+</html>
